@@ -1,5 +1,5 @@
 {
-  "name": "major-store",
+  "name": "gulp-workflow",
   "version": "1.0.0",
   "description": "Modelo de Plantilla para trabajar con Paginas Web.",
   "main": "gulpfile.js",

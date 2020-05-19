@@ -2,9 +2,7 @@
 
 Para comenzar a utilizar el repositorio es necesario seguir los suiguentes pasos
 - Instalar Node JS
-<a href="https://nodejs.org/es/download/" target="_blank">
-  `https://nodejs.org/es/download/`
-</a>
+<a href="https://nodejs.org/es/download/" target="_blank">`https://nodejs.org/es/download/`</a>
 
 - Instalar Gulp desde el repositorio
   ```shell
