@@ -1,0 +1,26 @@
+# EditorConfig is awesome: https://editorconfig.org/
+# Ejemplos: https://github.com/editorconfig/editorconfig/wiki/Projects-Using-EditorConfig
+# Especificaciones: https://editorconfig-specification.readthedocs.io/en/latest/#
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+insert_final_newline = true
+
+# 4 space indentation
+[*.{html,css,js,pug,scss,js}]
+charset = utf-8
+indent_style = space
+indent_size = 3
+
+# Sangría de tabulación (sin tamaño especificado)
+[Makefile]
+indent_style = tab
+
+# Archivos por su nombre
+[{package.json,.babelrc}]
+indent_style = space
+indent_size = 3
