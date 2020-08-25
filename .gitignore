@@ -1,2 +1,9 @@
-/dist
-/node_modules
+#### Excluir carpetas y archivos a GitHub ####
+
+# Carpeta de dependencias de NPM
+node_modules/
+
+# Archivos compilados
+dist/
+
+package-lock.json
