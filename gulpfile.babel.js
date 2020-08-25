@@ -1,198 +1,172 @@
-const {
-    src,
-    dest,
-    series,
-    parallel,
-    watch,
-    task
-} = require('gulp');
-const webp = require('gulp-webp');
-const imagemin = require('gulp-imagemin');
-const image = require('gulp-image');
-const babel = require('gulp-babel');
-const minify = require('gulp-babel-minify');
-const rename = require('gulp-rename');
-const concat = require('gulp-concat');
-const scss = require('gulp-sass');
-const sourcemaps = require('gulp-sourcemaps');
-const autoprefixer = require('gulp-autoprefixer');
-const pug = require('gulp-pug');
-const clean = require('gulp-clean');
-const html2pug = require('gulp-html2pug');
+import {
+   src,
+   dest,
+   task,
+   watch,
+   series,
+   parallel
+} from 'gulp';
+/* MODULOS PARA JAVASCRIPT -> */
+import babel from 'gulp-babel' //Convertir JS moderno a versiones anteriores.
+import terser from 'gulp-terser' //Ofuscar codigo JS.
+import concat from 'gulp-concat' //Unir archivos CSS o JS.
 
-/* INPUTS */
-const input_paths = {
-    img: 'src/assets/img/**/*',
-    js: 'src/assets/js/**/*.js',
-    scss: 'src/assets/scss/**/*.scss',
-    svg: 'src/assets/svg/**/*.svg',
-    pug: 'src/pug/**/*.pug'
+/* MODULOS PARA CSS -> */
+import scss from 'gulp-sass' //Convierte archivos SCSS a CSS.
+import postcss from 'gulp-postcss' //Junta modulos para trabajar CSS.
+import purgecss from 'gulp-purgecss' //Elimina selectores y clases sin usar.
+import autoprefixer from 'autoprefixer' //Genera CSS para versiones anteriores.
+import cssnano from 'cssnano' //Comprime y mejora el CSS.
+
+/* MODULOS PARA GENERAR MAPS -> */
+import sourcemaps from 'gulp-sourcemaps'
+
+/* MODULOS PARA TRATAR IMAGENES Y SVG -> */
+import imagemin from 'imagemin'
+
+import rename from 'gulp-rename'
+import pug from 'gulp-pug'
+import plumber from 'gulp-plumber'
+import cacheBust from 'gulp-cache-bust'
+import html2pug from 'gulp-html2pug'
+import replace from 'gulp-replace'
+import clean from 'gulp-clean'
+
+//<- MODULO PARA CREAR SERVIDOR LOCAL ->
+import {
+   init as server,
+   stream,
+   reload
+} from 'browser-sync'
+
+/***************************************/
+/*** VARIABLES GLOBALES DE PRODUCCIÓN **/
+/***************************************/
+const PRODUCTION = true
+const STATE_SOURCEMAPS = false;
+
+//<- Ruta de entrada ->//
+const __inputs = {
+   img: 'src/assets/img/**/*',
+   js: 'src/assets/js/**/*.js',
+   scss: 'src/assets/scss/**/*.scss',
+   svg: 'src/assets/svg/**/*.svg',
+   pug: 'src/pug/**/*.pug',
+   vendors: 'src/assets/vendors/**/*',
+   clean_css: 'dist/assets/css/**/*.css',
+   html_verify: 'dist/**/*.html',
+   html2pug: './src/pug/tools/html2pug/_input.html'
 };
 
-/* OUTPUTS */
-const output_paths = {
-    css: 'dist/assets/css',
-    js: 'dist/assets/js',
-    img: 'dist/assets/img',
-    webp: 'dist/img/assets/webp',
-    svg: 'dist/assets/svg',
-    html: 'dist/'
+//<- Ruta de salida ->//
+const __outputs = {
+   css: 'dist/assets/css/',
+   scss: 'src/assets/scss/',
+   js: 'dist/assets/js/',
+   img: 'dist/assets/img/',
+   webp: 'dist/img/assets/webp/',
+   svg: 'dist/assets/svg/',
+   html: 'dist/',
+   vendors: 'dist/assets/vendors/',
+   html2pug: './src/pug/tools/html2pug/'
 };
 
-function dev_javascript() {
-    return src(input_paths.js)
-        .pipe(concat('scripts.js'))
-        .pipe(babel({
-            presets: ['@babel/preset-env'],
-        }))
-        .pipe(dest(output_paths.js))
-}
+task('js', () => {
+   return src(__inputs.js, {
+         sourcemaps: STATE_SOURCEMAPS
+      })
+      .pipe(plumber())
+      .pipe(concat(PRODUCTION ? 'scripts.min.js' : 'scripts.js'))
+      .pipe(babel())
+      .pipe(terser({
+         format: {
+            comments: PRODUCTION ? '/^!/' : true,
+            beautify: !PRODUCTION
+         },
+         compress: {
+            drop_console: PRODUCTION
+         }
+      }))
+      .pipe(dest(__outputs.js, {
+         sourcemaps: '.'
+      }))
+})
 
-function prod_javascript() {
-    return src(input_paths.js)
-        .pipe(concat('scripts.js'))
-        .pipe(babel({
-            presets: ['@babel/preset-env'],
-            plugins: ['transform-minify-booleans', 'minify-builtins', 'transform-inline-consecutive-adds',
-                'minify-dead-code-elimination', 'minify-constant-folding', 'minify-flip-comparisons',
-                'minify-guarded-expressions', 'minify-infinity', 'minify-mangle-names',
-                'transform-member-expression-literals', 'transform-merge-sibling-variables',
-                'minify-numeric-literals', 'transform-property-literals', 'transform-regexp-constructors',
-                'transform-remove-console', 'transform-remove-debugger', 'transform-remove-undefined',
-                'minify-replace', 'minify-simplify', 'transform-simplify-comparison-operators',
-                'minify-type-constructors', 'transform-undefined-to-void'
-            ]
-        }))
-        .pipe(minify({
-            mangle: {
-                keepClassName: true,
-            }
-        }))
-        .pipe(rename({
-            extname: '.min.js'
-        }))
-        .pipe(dest(output_paths.js))
-}
+task('pug', () => {
+   //? https://github.com/isaacs/node-glob#glob-primer
+   //return src('src/pug/**/?(*.pug|!.*)')
+   return src(__inputs.pug)
+      .pipe(plumber())
+      .pipe(pug({
+         pretty: PRODUCTION ? false : true,
+      }))
+      .pipe(cacheBust({
+         type: 'timestamp'
+      }))
+      .pipe(dest(__outputs.html))
+})
 
-function dev_css() {
-    return src(input_paths.scss)
-        .pipe(scss({
-            outputStyle: 'expanded' //expanded,nested,compact,compressed,
-        }).on('error', scss.logError))
-        .pipe(autoprefixer({
-            cascade: false
-        }))
-        .pipe(rename('styles.css'))
-        .pipe(dest(output_paths.css))
-}
+task('clean_pug', () => {
+   return src('dist/tools', {
+         read: false
+      })
+      .pipe(clean())
+})
 
-function prod_css() {
-    return src(input_paths.scss)
-        .pipe(scss({
-            outputStyle: 'compressed' //expanded,nested,compact,compressed,
-        }).on('error', scss.logError))
-        .pipe(autoprefixer({
-            cascade: false
-        }))
-        .pipe(rename('styles.min.css'))
-        .pipe(dest(output_paths.css))
-}
+task('scss', () => {
+   return src(__inputs.scss, {
+         sourcemaps: STATE_SOURCEMAPS
+      })
+      .pipe(plumber())
+      .pipe(scss({
+         outputStyle: PRODUCTION ? 'compressed' : 'expanded' //expanded,nested,compact,compressed,
+      }))
+      .pipe(postcss([autoprefixer(), (PRODUCTION ? cssnano() : () => {})]))
+      .pipe(rename(PRODUCTION ? 'styles.min.css' : 'styles.css'))
+      .pipe(dest(__outputs.css, {
+         sourcemaps: '.'
+      }))
+      .pipe(stream())
+})
 
-function dev_pug() {
-    return src(input_paths.pug)
-        .pipe(pug({
-            pretty: true
-        }))
-        .pipe(dest(output_paths.html))
-}
+task('bootstrap', () => {
+   return src('node_modules/bootstrap/scss/**/*.scss')
+      .pipe(dest(__outputs.scss))
+})
 
-function prod_pug() {
-    return src(input_paths.pug)
-        .pipe(pug({
-            pretty: false
-        }))
-        .pipe(dest(output_paths.html))
-}
+task('clean_css', () => {
+   return src(__inputs.clean_css)
+      .pipe(plumber())
+      .pipe(purgecss({
+         content: [__inputs.html_verify]
+      }))
+      .pipe(rename('modificado.min.css'))
+      .pipe(dest(__outputs.css))
+})
 
-function cleaner_pug() {
-    return src('dist/tools', {
-            read: false
-        })
-        .pipe(clean());
-}
+task('copy_vendors', () => {
+   return src(__inputs.vendors)
+      .pipe(dest(__outputs.vendors))
+})
 
-function normalize() {
-    return src('./node_modules/normalize.css/normalize.css')
-        .pipe(rename('_normalize.scss'))
-        .pipe(dest('./src/assets/scss/generic'))
-}
+task('htmlToPug', () => {
+   return src(__inputs.html2pug)
+      .pipe(html2pug({
+         tabs: true,
+         doubleQuotes: true,
+         fragment: true
+      }))
+      .pipe(rename('_output.pug'))
+      .pipe(dest(__outputs.html2pug))
+})
 
-function bootstrap() {
-    //ELEMENTOS BOOTSTRAP
-    var bootstrap = 'node_modules/bootstrap/dist/css/bootstrap.min.css';
-    var bootstrap_grid = 'node_modules/bootstrap/dist/css/bootstrap-grid.min.css';
-    var bootstrap_reboot = 'node_modules/bootstrap/dist/css/bootstrap-reboot.min.css';
-    var bootstrap_js = 'node_modules/bootstrap/dist/js/bootstrap.min.js';
-    var bootstrap_bundle_js = 'node_modules/bootstrap/dist/js/bootstrap.bundle.min.js';
-    //ELEMENTOS JQUERY
-    var jquery = 'node_modules/jquery/dist/jquery.min.js';
-    var jquery_slim = 'node_modules/jquery/dist/jquery.slim.min.js';
-    //ELEMENTOS POPPER.JS
-    var popper = 'node_modules/popper.js/dist/popper.min.js';
-    var popper_utils = 'node_modules/popper.js/dist/popper-utils.min.js';
-    //ELEMENTOS SASS DE BOOTSTRAP
-    var bootstrap_scss = 'node_modules/bootstrap/scss/'
-
-    var copyFilesArray = [bootstrap, jquery, popper];
-    copyFilesArray.forEach(copy);
-
-    var rutaSalida = 'dist/assets/';
-
-    function copy(elemento, indice) {
-        var extension = elemento.split(".").pop();
-        if (extension == 'css') {
-            src(elemento).pipe(dest(rutaSalida + 'css'));
-        } else if (extension == 'js') {
-            src(elemento).pipe(dest(rutaSalida + 'js'));
-        }
-    }
-}
-
-function convertImageWebp() {
-    return src(output_paths.img)
-        .pipe(webp())
-        .pipe(dest(output_paths.webp))
-}
-
-function convertHtmlPug() {
-    watch('carpeta_prueba/index.html', function convert() {
-        return src('carpeta_prueba/index.html')
-            .pipe(html2pug())
-            .pipe(dest('./carpeta_prueba'))
-    })
-}
-
-/**********************************************************************************************************************************/
-function dev_watch_all() {
-    watch([input_paths.scss, input_paths.js, input_paths.pug], parallel(dev_css, dev_javascript, series(dev_pug, cleaner_pug)));
-}
-
-function prod_watch_all() {
-    watch([input_paths.scss, input_paths.js, input_paths.pug], parallel(prod_css, prod_javascript, series(prod_pug, cleaner_pug)));
-}
-/**********************************************************************************************************************************/
-
-//Convertir HTML a PUG
-exports.convertHtmlPug = series(convertHtmlPug);
-
-//Copia el archivo normalize de node_modules
-exports.normalize = normalize;
-
-//Compila los archivos para debugear
-exports.dev = series(dev_watch_all);
-
-//Compila los archivos para produccion
-exports.prod = series(prod_watch_all);
-
-//Copia los archivo bootstrap de node_modules
-exports.bootstrap = series(bootstrap);
+task('default', () => {
+   server({
+      server: './dist'
+   })
+   watch(__inputs.pug, series('pug', 'clean_pug')).on('change', reload)
+   watch(__inputs.scss, series('scss'))
+   watch(__inputs.js, series('js')).on('change', reload)
+   watch(__inputs.vendors, series('copy_vendors')).on('change', reload)
+   watch(__inputs.html2pug, series('htmlToPug'))
+})
